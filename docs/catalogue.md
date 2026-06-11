@@ -52,6 +52,7 @@
 - [Pika的kv数据写入txt文本工具](https://github.com/OpenAtomFoundation/pika/wiki/%e8%bf%81%e7%a7%bbString%e7%b1%bb%e5%9e%8b%e6%95%b0%e6%8d%ae%e5%88%b0txt%e6%96%87%e6%9c%ac)
 - [kv数据txt文本迁移Pika工具](https://github.com/OpenAtomFoundation/pika/wiki/txt_to_pika%E5%B7%A5%E5%85%B7)
 - [pika exporter监控工具](https://github.com/OpenAtomFoundation/pika/tree/unstable/tools/pika_exporter)
+- [pika exporter密码安全配置](../tools/pika_exporter/README.md#password-security)
 - [codis-redis实时同步pika工具](https://github.com/GetuiLaboratory/codis2pika)
 
 ## Develop

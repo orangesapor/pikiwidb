@@ -16,7 +16,7 @@ COPY . ${PIKA_BUILD_DIR}
 
 WORKDIR ${PIKA_EXPORTER_BUILD_DIR}
 
-RUN go env && make
+RUN go env && make && make build-encrypt-tool
 
 FROM ubuntu:22.04
 
@@ -29,6 +29,7 @@ ENV PIKA=/pika \
 WORKDIR ${PIKA}
 
 COPY --from=builder ${PIKA_BUILD_DIR}/tools/pika_exporter/bin/pika_exporter ${PIKA}/bin/pika_exporter
+COPY --from=builder ${PIKA_BUILD_DIR}/tools/pika_exporter/bin/pika_encrypt_tool ${PIKA}/bin/pika_encrypt_tool
 COPY --from=builder ${PIKA_BUILD_DIR}/tools/pika_exporter/config/info.toml ${PIKA}/conf/info.toml
 
 EXPOSE 9121

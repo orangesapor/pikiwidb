@@ -497,6 +497,42 @@ Evaluate the upper limit of QPS for Pika under different worker thread counts.
 
 More details on [Metrics](tools/pika_exporter/README.md).
 
+### Pika Exporter Password Security
+
+Pika Exporter supports secure password modes to avoid exposing plaintext passwords in command lines:
+
+**Encrypted Password:**
+```shell
+# Encrypt password first
+$ ./bin/pika_encrypt_tool -password <plaintext> -key <encryption_key>
+# Start with encrypted password
+$ ./bin/pika_exporter -pika.addr=<addr> -pika.password=<encrypted> -pika.password-key=<key>
+```
+
+**Password File:**
+```shell
+# Write password to file
+$ echo '<password>' > /etc/pika/password && chmod 600 /etc/pika/password
+# Start with password file
+$ ./bin/pika_exporter -pika.addr=<addr> -pika.password-file=/etc/pika/password
+```
+
+**Encrypted Password File (Recommended):**
+```shell
+$ ./bin/pika_encrypt_tool -password <plaintext> -key <encryption_key>
+$ echo '<encrypted>' > /etc/pika/password && chmod 600 /etc/pika/password
+$ ./bin/pika_exporter -pika.addr=<addr> -pika.password-file=/etc/pika/password -pika.password-key=<key>
+```
+
+**Environment Variables:**
+```shell
+$ export PIKA_PASSWORD=<encrypted>
+$ export PIKA_PASSWORD_KEY=<key>
+$ ./bin/pika_exporter -pika.addr=<addr>
+```
+
+More details on [Password Security](tools/pika_exporter/README.md#password-security).
+
 ## Documents
 
 * [wiki](https://github.com/OpenAtomFoundation/pika/wiki)

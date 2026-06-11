@@ -18,7 +18,19 @@ rocksdb = true
 # pika_addr = "127.0.0.1:9379"
 
 # The password for the pika instance
+# Can be plaintext or encrypted (when used with pika_password_key)
 # pika_password = ""
+
+# The path to a file containing password(s), one per line
+# Each line can be plaintext or encrypted (when used with pika_password_key)
+# Lines starting with '#' are treated as comments
+# pika_password_file = ""
+
+# The encryption key for decrypting passwords
+# Must be 16, 24, or 32 characters for AES-128/192/256
+# When set, pika_password and pika_password_file values are treated as AES-GCM encrypted
+# Use pika_encrypt_tool to generate encrypted passwords
+# pika_password_key = ""
 
 # The alias for the pika instance
 # pika_alias = ""

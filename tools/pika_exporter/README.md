@@ -49,7 +49,9 @@ prometheus --config.file=./grafana/prometheus.yml
 | -------------------- | ---------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | pika.host-file       | PIKA_HOST_FILE                     |          | Path to file containing one or more pika nodes, separated by newline. NOTE: mutually exclusive with pika.addr.Each line can optionally be comma-separated with the fields `<addr>`,`<password>`,`<alias>`. See [here](https://github.com/OpenAtomFoundation/pika/tools/pika_exporter/raw/master/contrib/sample_pika_hosts_file.txt) for an example file. | --pika.host-file ./pika_hosts_file.txt        |
 | pika.addr            | PIKA_ADDR                          |          | Address of one or more pika nodes, separated by comma.                                                                                                                                                                                                                                                                                                      | --pika.addr 192.168.1.2:9221,192.168.1.3:9221 |
-| pika.password        | PIKA_PASSWORD                      |          | Password for one or more pika nodes, separated by comma.                                                                                                                                                                                                                                                                                                    | --pika.password 123.com,123.com               |
+| pika.password        | PIKA_PASSWORD                      |          | Password for one or more pika nodes, separated by comma. Can be encrypted when used with `pika.password-key`.                                                                                                                                                                                                                                              | --pika.password 123.com,123.com               |
+| pika.password-file   | PIKA_PASSWORD_FILE                 |          | Path to file containing password(s), one per line. Can contain encrypted passwords when used with `pika.password-key`. Lines starting with `#` are treated as comments.                                                                                                                                                                                    | --pika.password-file /etc/pika/password       |
+| pika.password-key    | PIKA_PASSWORD_KEY                  |          | Key for decrypting password(s). Must be 16, 24, or 32 characters for AES-128/192/256. When set, `pika.password` and `pika.password-file` values are treated as AES-GCM encrypted.                                                                                                                                                                         | --pika.password-key my16charkey12345          |
 | pika.alias           | PIKA_ALIAS                         |          | Pika instance alias for one or more pika nodes, separated by comma.                                                                                                                                                                                                                                                                                         | --pika.alias a,b                              |
 | namespace            | PIKA_EXPORTER_NAMESPACE            | pika     | Namespace for metrics                                                                                                                                                                                                                                                                                                                                       | --namespace pika                              |
 | keyspace-stats-clock | PIKA_EXPORTER_KEYSPACE_STATS_CLOCK | -1       | Stats the number of keys at keyspace-stats-clock o'clock every day, in the range [0, 23]. If < 0, not open this feature.                                                                                                                                                                                                                                    | --keyspace-stats-clock 0                      |
@@ -191,3 +193,105 @@ Screenshots:
 ![KeysMetrics](./contrib/keys_metrics.png)
 
 ![RocksDB](./contrib/rocksdb.png)
+
+## Password Security
+
+By default, `pika_exporter` accepts passwords in plaintext via the `-pika.password` flag. This is not secure because the password is visible in the process list, shell history, and monitoring systems. To improve security, `pika_exporter` supports the following secure password modes:
+
+### Mode 1: Encrypted Password via Command Line
+
+Use the `pika_encrypt_tool` to encrypt your password first, then provide the encrypted password with the decryption key:
+
+```shell
+# Step 1: Encrypt the password
+$ ./bin/pika_encrypt_tool -password 7bb34209 -key my16charkey12345
+Encrypted password: <encrypted_base64_string>
+
+# Step 2: Start exporter with encrypted password
+$ ./bin/pika_exporter \
+    -pika.addr=10.236.5.106:5195 \
+    -pika.password=<encrypted_base64_string> \
+    -pika.password-key=my16charkey12345 \
+    --web.listen-address=10.236.85.106:35195
+```
+
+### Mode 2: Password File
+
+Store the password (plaintext or encrypted) in a file to avoid exposing it in the command line:
+
+```shell
+# Plaintext password file
+$ echo '7bb34209' > /etc/pika/password
+
+# Start exporter with password file
+$ ./bin/pika_exporter \
+    -pika.addr=10.236.5.106:5195 \
+    -pika.password-file=/etc/pika/password \
+    --web.listen-address=10.236.85.106:35195
+```
+
+### Mode 3: Encrypted Password File (Recommended)
+
+Combine both approaches for maximum security:
+
+```shell
+# Step 1: Encrypt the password
+$ ./bin/pika_encrypt_tool -password 7bb34209 -key my16charkey12345
+Encrypted password: <encrypted_base64_string>
+
+# Step 2: Write encrypted password to file
+$ echo '<encrypted_base64_string>' > /etc/pika/password
+
+# Step 3: Set file permissions (only owner can read)
+$ chmod 600 /etc/pika/password
+
+# Step 4: Start exporter with encrypted password file
+$ ./bin/pika_exporter \
+    -pika.addr=10.236.5.106:5195 \
+    -pika.password-file=/etc/pika/password \
+    -pika.password-key=my16charkey12345 \
+    --web.listen-address=10.236.85.106:35195
+```
+
+### Mode 4: Environment Variables
+
+You can also use environment variables to avoid exposing passwords in the command line:
+
+```shell
+# Plaintext password
+$ export PIKA_PASSWORD=7bb34209
+$ ./bin/pika_exporter -pika.addr=10.236.5.106:5195 --web.listen-address=10.236.85.106:35195
+
+# Encrypted password
+$ export PIKA_PASSWORD=<encrypted_base64_string>
+$ export PIKA_PASSWORD_KEY=my16charkey12345
+$ ./bin/pika_exporter -pika.addr=10.236.5.106:5195 --web.listen-address=10.236.85.106:35195
+
+# Password file
+$ export PIKA_PASSWORD_FILE=/etc/pika/password
+$ export PIKA_PASSWORD_KEY=my16charkey12345
+$ ./bin/pika_exporter -pika.addr=10.236.5.106:5195 --web.listen-address=10.236.85.106:35195
+```
+
+### Password Resolution Priority
+
+When multiple password sources are provided, the resolution priority is:
+
+1. **`pika.password-file`** - If set, passwords are read from the file (highest priority)
+2. **`pika.password`** + **`pika.password-key`** - If both are set, the password is decrypted
+3. **`pika.password`** only - Plaintext password (backward compatible, lowest security)
+
+### Encryption Key Requirements
+
+- The encryption key must be **16**, **24**, or **32** characters for AES-128, AES-192, or AES-256 respectively
+- If the key is shorter than 16 characters, it will be automatically padded with null bytes
+- If the key is longer than 32 characters, it will be truncated to 32 characters
+- The encryption uses **AES-GCM** which provides both confidentiality and integrity
+
+### Security Best Practices
+
+1. **Never** use plaintext passwords in command lines - they are visible in `ps` output
+2. Use **encrypted password files** with restricted file permissions (`chmod 600`)
+3. Store the encryption key separately from the password file
+4. Rotate encryption keys periodically
+5. Consider using environment variables for the encryption key instead of command-line flags

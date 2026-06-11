@@ -20,7 +20,9 @@ var (
 	hostFile           = flag.String("pika.host-file", getEnv("PIKA_HOST_FILE", ""), "Path to file containing one or more pika nodes, separated by newline. NOTE: mutually exclusive with pika.addr.")
 	addr               = flag.String("pika.addr", getEnv("PIKA_ADDR", ""), "Address of one or more pika nodes, separated by comma.")
 	codisaddr          = flag.String("codis.addr", getEnv("CODIS_ADDR", ""), "Address of one or more codis topom urls, separated by comma, such as \"http://localhost:port/topom\".")
-	password           = flag.String("pika.password", getEnv("PIKA_PASSWORD", ""), "Password for one or more pika nodes, separated by comma.")
+	password           = flag.String("pika.password", getEnv("PIKA_PASSWORD", ""), "Password for one or more pika nodes, separated by comma. Can be encrypted when used with -pika.password-key.")
+	passwordFile       = flag.String("pika.password-file", getEnv("PIKA_PASSWORD_FILE", ""), "Path to file containing password(s), one per line. Can contain encrypted passwords when used with -pika.password-key.")
+	passwordKey        = flag.String("pika.password-key", getEnv("PIKA_PASSWORD_KEY", ""), "Key for decrypting password(s). Must be 16, 24, or 32 characters for AES-128/192/256. When set, -pika.password and -pika.password-file values are treated as AES-GCM encrypted.")
 	alias              = flag.String("pika.alias", getEnv("PIKA_ALIAS", ""), "Pika instance alias for one or more pika nodes, separated by comma.")
 	namespace          = flag.String("namespace", getEnv("PIKA_EXPORTER_NAMESPACE", "pika"), "Namespace for metrics.")
 	metricsFile        = flag.String("metrics-file", getEnv("PIKA_EXPORTER_METRICS_FILE", ""), "Metrics definition file.")
@@ -52,6 +54,20 @@ func getEnvInt(key string, defaultVal int) int {
 	return defaultVal
 }
 
+// resolvedPassword stores the resolved (decrypted) password for use in Update() method
+var resolvedPassword string
+
+// resolvePassword resolves the password from command-line, password file, or encrypted source.
+func resolvePassword(pwd, pwdFile, pwdKey string) (string, error) {
+	// If encryption key is provided, pad it to valid AES key size
+	effectiveKey := ""
+	if pwdKey != "" {
+		effectiveKey = exporter.PadKey(pwdKey)
+	}
+
+	return exporter.ResolvePassword(pwd, pwdFile, effectiveKey)
+}
+
 func main() {
 	flag.Parse()
 
@@ -73,6 +89,13 @@ func main() {
 
 	if err := exporter.LoadConfig(); err != nil {
 		log.Fatalln("load config failed. err:", err)
+	}
+
+	// Resolve password: support password file and encrypted password
+	var err error
+	resolvedPassword, err = resolvePassword(*password, *passwordFile, *passwordKey)
+	if err != nil {
+		log.Fatalln("resolve password failed. err:", err)
 	}
 
 	level, err := log.ParseLevel(*logLevel)
@@ -99,9 +122,9 @@ func main() {
 	if *hostFile != "" {
 		dis, err = discovery.NewFileDiscovery(*hostFile)
 	} else if *codisaddr != "" {
-		dis, err = discovery.NewCodisDiscovery(*codisaddr, *password, *alias)
+		dis, err = discovery.NewCodisDiscovery(*codisaddr, resolvedPassword, *alias)
 	} else {
-		dis, err = discovery.NewCmdArgsDiscovery(*addr, *password, *alias)
+		dis, err = discovery.NewCmdArgsDiscovery(*addr, resolvedPassword, *alias)
 	}
 	if err != nil {
 		log.Fatalln(" failed. err:", err)
@@ -219,7 +242,7 @@ func (exptr_regis *ExporterRegistry) Stop() {
 
 func (exptr_regis *ExporterRegistry) Update() {
 	if *codisaddr != "" {
-		newdis, err := discovery.NewCodisDiscovery(*codisaddr, *password, *alias)
+		newdis, err := discovery.NewCodisDiscovery(*codisaddr, resolvedPassword, *alias)
 		if err != nil {
 			log.Fatalln("exporter get NewCodisDiscovery failed. err:", err)
 		}

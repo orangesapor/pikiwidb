@@ -59,10 +59,13 @@ rm -f $$COV_TMP_FILE
 endef
 export TEST_COVER
 
-all: build 
+all: build
 
 build: deps
 	CGO_ENABLED=0 go build -o bin/$(PROJNAME)
+
+build-encrypt-tool: deps
+	CGO_ENABLED=0 go build -o bin/pika_encrypt_tool ./cmd/encrypt_tool/
 
 deps: generateVer
 	@mkdir -p bin

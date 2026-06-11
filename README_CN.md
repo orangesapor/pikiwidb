@@ -499,6 +499,42 @@ __推荐大家在使用 Pika 前在自己的环境，根据使用场景详细测
 
 详细请参考 [指标 Metrics](tools/pika_exporter/README.md)。
 
+### Pika Exporter 密码安全
+
+Pika Exporter 支持安全密码模式，避免在命令行中暴露明文密码：
+
+**加密密码：**
+```shell
+# 先加密密码
+$ ./bin/pika_encrypt_tool -password <明文密码> -key <加密密钥>
+# 使用加密密码启动
+$ ./bin/pika_exporter -pika.addr=<地址> -pika.password=<加密后密文> -pika.password-key=<加密密钥>
+```
+
+**密码文件：**
+```shell
+# 将密码写入文件
+$ echo '<密码>' > /etc/pika/password && chmod 600 /etc/pika/password
+# 使用密码文件启动
+$ ./bin/pika_exporter -pika.addr=<地址> -pika.password-file=/etc/pika/password
+```
+
+**加密密码文件（推荐）：**
+```shell
+$ ./bin/pika_encrypt_tool -password <明文密码> -key <加密密钥>
+$ echo '<加密后密文>' > /etc/pika/password && chmod 600 /etc/pika/password
+$ ./bin/pika_exporter -pika.addr=<地址> -pika.password-file=/etc/pika/password -pika.password-key=<加密密钥>
+```
+
+**环境变量：**
+```shell
+$ export PIKA_PASSWORD=<加密后密文>
+$ export PIKA_PASSWORD_KEY=<加密密钥>
+$ ./bin/pika_exporter -pika.addr=<地址>
+```
+
+更多详情请参考 [密码安全](tools/pika_exporter/README.md#password-security)。
+
 ## 文档
 
 * [wiki](https://github.com/OpenAtomFoundation/pika/wiki)
